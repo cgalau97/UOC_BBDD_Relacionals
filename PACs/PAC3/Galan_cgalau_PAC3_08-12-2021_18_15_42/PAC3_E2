@@ -1,0 +1,157 @@
+SET search_path TO dbdw_pec3;
+--2a
+SET search_path TO olympic, "$user", olimpic;
+CREATE EXTENSION citext; -- citext permet que les majúscules i les minúscules signifiquin el mateix, tal i com passa als correus electrònics.
+CREATE DOMAIN olympic.email_type AS olympic.citext 
+  --CHECK ( value ~ '^[a-zA-Z0-9.!#$%&''*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$' );
+  CHECK (value LIKE '%@%');
+
+ALTER TABLE olympic.tb_collaborator
+	--DROP COLUMN email,
+	ADD COLUMN email olympic.email_type;
+
+ALTER TABLE olympic.tb_sponsor
+	--DROP COLUMN email,
+	ADD COLUMN email olympic.email_type;
+--UPDATE olympic.tb_collaborator SET email = 'gmail.com' WHERE dni = 'MI78145298';
+--UPDATE olympic.tb_collaborator SET email = NULL WHERE dni = 'WM76364558'; 
+--select * from olympic.tb_collaborator where dni = 'MI78145298'
+
+--UPDATE olympic.tb_sponsor SET email = 'nike@gmail.com' WHERE name = 'Nike';
+
+--select * from olympic.tb_collaborator WHERE dni = 'MI78145298'
+--select * from olympic.tb_sponsor
+
+--2b
+	 
+CREATE TABLE olympic.tb_athletes_info_log(
+	athlete_id CHAR(7),
+	discipline_id INT,
+	round_number INT,
+	athlete_name VARCHAR(50),
+	discipline_name VARCHAR(50),
+	mark VARCHAR(12),
+	rating INT,
+	info_log_dt DATE,
+	PRIMARY KEY (athlete_id,discipline_id,round_number),
+	FOREIGN KEY (athlete_id,discipline_id,round_number) REFERENCES olympic.tb_register(athlete_id,discipline_id,round_number));
+	
+--2c	
+CREATE OR REPLACE FUNCTION olympic.fn_athletes_info()
+-- En primera instancia, es mira si la funció realitzada és INSERT, UPDATE o DELETE.
+-- En el cas de INSERT: Es diferencia en si register_measure o register_time és NOT NULL i es converteix el paràmetre a var char.
+-- En el cas d'UPDATE: Es diferencia en si el registre ja es troba al log(de forma lògica sempre ho hauria d'estar però no en la realització posterior de la taula com és el cas.)
+-- Si ja està guardada la clau primaria, s'insereixen els canvis. Si no ho està de guardada, s'apliquen les mateixes regles de INSERT.
+-- En el cas de DELETE: Si existeix la clau primaria, és a dir, s'ha guardat la info anteriorment al log, aquesta es guarda. 
+-- NOTA: Aquest funcionament no és l'adequat d'un log ja que es perd el rastre d'accions fetes.
+RETURNS trigger AS $$ BEGIN
+	IF (TG_OP = 'INSERT') THEN
+		IF (NEW.register_measure IS NOT NULL) THEN
+			INSERT INTO olympic.tb_athletes_info_log VALUES (
+			   NEW.athlete_id, NEW.discipline_id,NEW.round_number,
+			   (SELECT a.name FROM olympic.tb_athlete a WHERE a.athlete_id = NEW.athlete_id),
+			   (SELECT d.name FROM olympic.tb_discipline d WHERE d.discipline_id = NEW.discipline_id),
+				TO_CHAR(NEW.register_measure,'9999D99'),--les mesures que s'entrin no podran tenir més de 4 valors sencers i 2 decimals.
+			    NEW.register_position, 
+				CURRENT_DATE); --de l'enunciat interpreto que no es vol la hora que s'ha entrat sinó una propia pel log.
+		END IF;
+		IF (NEW.register_time IS NOT NULL) THEN
+			INSERT INTO olympic.tb_athletes_info_log VALUES (
+			   NEW.athlete_id, NEW.discipline_id,NEW.round_number,
+			   (SELECT a.name FROM olympic.tb_athlete a WHERE a.athlete_id = NEW.athlete_id),
+			   (SELECT d.name FROM olympic.tb_discipline d WHERE d.discipline_id = NEW.discipline_id),
+				TO_CHAR(NEW.register_time,'HH24:MI:SS'),
+			    NEW.register_position, 
+				CURRENT_DATE);
+		END IF;
+		RETURN NEW;
+			
+	ELSIF (TG_OP = 'UPDATE') THEN
+		IF ((SELECT COUNT(*) FROM olympic.tb_athletes_info_log WHERE athlete_id = NEW.athlete_id AND discipline_id = NEW.discipline_id AND round_number=NEW.round_number)=1) THEN
+			IF (NEW.register_measure IS NOT NULL) THEN
+				UPDATE olympic.tb_athletes_info_log SET
+				mark = TO_CHAR(NEW.register_measure,'9999D99'),--les mesures que s'entrin no podran tenir més de 4 valors sencers i 2 decimals.
+				rating = NEW.register_position, 
+				info_log_dt = CURRENT_DATE
+				WHERE athlete_id = NEW.athlete_id AND discipline_id = NEW.discipline_id AND round_number=NEW.round_number;
+			END IF;
+			IF (NEW.register_time IS NOT NULL) THEN
+				UPDATE olympic.tb_athletes_info_log SET
+				mark = TO_CHAR(NEW.register_time,'HH24:MI:SS'),
+				rating = NEW.register_position, 
+				info_log_dt = CURRENT_DATE
+				WHERE athlete_id = NEW.athlete_id AND discipline_id = NEW.discipline_id AND round_number=NEW.round_number;
+			END IF;	
+		ELSE
+			IF (NEW.register_measure IS NOT NULL) THEN
+				INSERT INTO olympic.tb_athletes_info_log VALUES (
+				   NEW.athlete_id, NEW.discipline_id,NEW.round_number,
+				   (SELECT a.name FROM olympic.tb_athlete a WHERE a.athlete_id = NEW.athlete_id),
+				   (SELECT d.name FROM olympic.tb_discipline d WHERE d.discipline_id = NEW.discipline_id),
+					TO_CHAR(NEW.register_measure,'9999D99'),--les mesures que s'entrin no podran tenir més de 4 valors sencers i 2 decimals.
+					NEW.register_position, 
+					CURRENT_DATE); --de l'enunciat interpreto que no es vol la hora que s'ha entrat sinó una propia pel log.
+			END IF;
+			IF (NEW.register_time IS NOT NULL) THEN
+				INSERT INTO olympic.tb_athletes_info_log VALUES (
+				   NEW.athlete_id, NEW.discipline_id,NEW.round_number,
+				   (SELECT a.name FROM olympic.tb_athlete a WHERE a.athlete_id = NEW.athlete_id),
+				   (SELECT d.name FROM olympic.tb_discipline d WHERE d.discipline_id = NEW.discipline_id),
+					TO_CHAR(NEW.register_time,'HH24:MI:SS'),
+					NEW.register_position, 
+					CURRENT_DATE);
+			END IF;
+		END IF;
+	ELSIF (TG_OP = 'DELETE') THEN
+		IF ((SELECT COUNT(*) FROM olympic.tb_athletes_info_log WHERE athlete_id = OLD.athlete_id AND discipline_id = OLD.discipline_id AND round_number=OLD.round_number)=1) THEN
+			DELETE FROM olympic.tb_athletes_info_log VALUES WHERE athlete_id = OLD.athlete_id AND discipline_id = OLD.discipline_id AND round_number=OLD.round_number;
+		END IF;
+	END IF;
+	RETURN NEW;
+	END;
+$$ LANGUAGE plpgsql;
+
+--creo dos triggers per poder borrar del log i evitar errors, degut a la clau primaria del 2b.
+CREATE OR REPLACE TRIGGER tg_athletes_info
+AFTER INSERT OR UPDATE ON olympic.tb_register
+FOR EACH ROW 
+EXECUTE PROCEDURE olympic.fn_athletes_info();
+
+CREATE OR REPLACE TRIGGER tg_athletes_info2
+BEFORE DELETE ON olympic.tb_register
+FOR EACH ROW 
+EXECUTE PROCEDURE olympic.fn_athletes_info();
+--before per poder ser borrat correctament. la opció de cascade a la taula no la contemplo degut als requeriments del 2b.
+--l'escenari ideal seria dir en el log que una fila s'ha borrat per tal que quedi constància.
+
+
+INSERT INTO olympic.tb_register(athlete_id, round_number, discipline_id, register_position,register_time) VALUES('0000003',0,5,5,'17:14:15');
+
+--2d
+CREATE TYPE olympic.tipus_dades_sponsor AS (
+	email olympic.email_type,
+	sponsor_name VARCHAR(100),
+	athlete_name VARCHAR(50),
+	discipline_name VARCHAR(50),
+	round_num INT,
+	mark VARCHAR(12),
+	round_pos INT,
+	info_date DATE);
+	
+CREATE OR REPLACE FUNCTION olympic.fn_get_info_by_sponsor(select_date DATE, sponsor olympic.tb_sponsor.name%type)
+RETURNS SETOF olympic.tipus_dades_sponsor AS $$
+DECLARE
+	dades_sponsor olympic.tipus_dades_sponsor;
+	
+BEGIN
+	FOR dades_sponsor IN SELECT s.email, s.name, a.name, l.discipline_name, l.round_number, l.mark, l.rating, l.info_log_dt --Al ser un log, hauria de contenir tota la info de totes les files.
+		FROM (((olympic.tb_finance f NATURAL JOIN olympic.tb_athlete a) JOIN olympic.tb_sponsor s ON s.name = f.sponsor_name) NATURAL JOIN olympic.tb_athletes_info_log l)
+		WHERE sponsor = s.name AND select_date = l.info_log_dt LOOP
+	RETURN NEXT dades_sponsor;
+	END LOOP;
+	RETURN;
+END;	
+$$ LANGUAGE plpgsql;
+
+--SELECT fn_get_info_by_sponsor('2021-12-08', 'Nike')
+--SELECT * FROM olympic.tb_athletes_info_log

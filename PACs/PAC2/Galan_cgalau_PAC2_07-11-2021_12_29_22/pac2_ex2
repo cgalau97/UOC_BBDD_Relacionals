@@ -1,0 +1,37 @@
+
+SET search_path TO olimpic;
+--A
+SELECT athlete_id, name, country, substitute_id FROM tb_athlete
+WHERE country IN ('ESP') AND name LIKE ('PE%')
+ORDER BY athlete_id DESC 
+
+--B 
+SET search_path TO olimpic;
+SELECT d.name, a.name, a.athlete_id 
+FROM (tb_athlete a NATURAL JOIN tb_play p) JOIN tb_discipline d ON d.discipline_id = p.discipline_id
+WHERE country IN ('FRA') AND d.type IN ('JUMP')
+ORDER BY d.discipline_id, a.name DESC
+
+--C
+SET search_path TO olimpic;
+SELECT  d.discipline_id,d.name, COUNT(*) AS participant_num
+FROM (tb_athlete a NATURAL JOIN tb_play p) JOIN tb_discipline d ON d.discipline_id = p.discipline_id
+--WHERE participant_num = (SELECT MAX(participiant_num) FROM discipline_id)
+GROUP BY d.discipline_id
+ORDER BY participant_num DESC
+LIMIT 1
+
+--D
+SET search_path TO olimpic;
+SELECT a.athlete_id, a.name, a.country,COUNT(a.athlete_id) AS participations
+FROM (tb_athlete a NATURAL JOIN tb_play p) JOIN tb_discipline d ON d.discipline_id = p.discipline_id
+GROUP BY a.athlete_id
+HAVING COUNT(a.athlete_id) >1
+
+--E 
+
+SELECT r.athlete_id, a.name, d.name, COUNT (r.round_number) AS total_rounds
+FROM (tb_register r NATURAL JOIN tb_athlete a ) JOIN tb_discipline d ON d.discipline_id = r.discipline_id
+GROUP BY r.athlete_id, a.name, d.name
+ORDER BY total_rounds DESC
+LIMIT 2

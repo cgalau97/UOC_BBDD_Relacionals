@@ -1,0 +1,61 @@
+-- SCHEMA: olympic
+
+-- DROP SCHEMA olympic ;
+SET search_path TO dbdw_pec3;
+
+ALTER TABLE olympic.tb_register
+	ALTER COLUMN register_date TYPE TIMESTAMP,
+	ALTER COLUMN register_date SET DEFAULT CURRENT_TIMESTAMP;
+--	ADD CONSTRAINT ck_date CHECK(register_date = CURRENT_TIMESTAMP);
+
+ALTER TABLE olympic.tb_register
+	RENAME register_date TO register_ts;
+
+--1b
+
+ALTER TABLE olympic.tb_register
+	ADD COLUMN register_updated TIMESTAMP;
+
+
+--FUNCIO PER ESTABLIR VALOR INICIAL
+--DROP FUNCTION default_upd()
+CREATE FUNCTION olympic.fn_register_inserted()
+RETURNS trigger AS $$
+BEGIN
+	--IF (OLD.register_updated IS NULL) THEN
+	NEW.register_updated := NEW.register_ts;
+	--END IF;
+	RETURN NEW;
+	END
+	$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_register_inserted
+BEFORE INSERT ON olympic.tb_register
+FOR EACH ROW 
+EXECUTE PROCEDURE olympic.fn_register_inserted();
+
+--INSERT INTO olympic.tb_register(athlete_id, round_number, discipline_id, register_position,register_measure) 
+--VALUES('0000003',2,1,0,30.0);	
+--SELECT * FROM olympic.tb_register
+--ORDER BY athlete_id
+
+--1c
+
+CREATE FUNCTION olympic.fn_register_updated()
+RETURNS trigger AS $$
+BEGIN
+	--IF (OLD.register_updated IS NULL) THEN
+	NEW.register_updated := CURRENT_TIMESTAMP;
+	--END IF;
+	RETURN NEW;
+	END
+	$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_register_updated
+BEFORE UPDATE ON olympic.tb_register
+FOR EACH ROW 
+EXECUTE PROCEDURE olympic.fn_register_updated();
+
+--UPDATE olympic.tb_register SET register_measure = 40 WHERE athlete_id = '0000003';
+--SELECT * FROM olympic.tb_register
+--ORDER BY athlete_id

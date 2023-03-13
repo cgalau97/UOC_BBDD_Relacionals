@@ -1,0 +1,26 @@
+CREATE TYPE olympic.JSON_tipus_dades_sponsor AS (
+	email JSON,
+	sponsor_name JSON,
+	athlete_name JSON,
+	discipline_name JSON,
+	round_num JSON,
+	mark JSON,
+	round_pos JSON,
+	info_date JSON);
+	
+CREATE OR REPLACE FUNCTION olympic.fn_get_info_by_sponsor_JSON(select_date DATE, sponsor olympic.tb_sponsor.name%type)
+RETURNS SETOF olympic.JSON_tipus_dades_sponsor AS $$
+DECLARE
+	dades_sponsor olympic.JSON_tipus_dades_sponsor;
+	
+BEGIN
+	FOR dades_sponsor IN SELECT s.email, s.name, a.name, l.discipline_name, l.round_number, l.mark, l.rating, l.info_log_dt --Al ser un log, hauria de contenir tota la info de totes les files.
+		FROM (((olympic.tb_finance f NATURAL JOIN olympic.tb_athlete a) JOIN olympic.tb_sponsor s ON s.name = f.sponsor_name) NATURAL JOIN olympic.tb_athletes_info_log l)
+		WHERE sponsor = s.name AND select_date = l.info_log_dt LOOP
+	RETURN NEXT dades_sponsor;
+	END LOOP;
+	RETURN;
+END;	
+$$ LANGUAGE plpgsql;
+
+SELECT olympic.fn_get_info_by_sponsor_JSON('2021-12-08', 'Nike')

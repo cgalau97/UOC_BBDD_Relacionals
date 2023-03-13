@@ -1,0 +1,54 @@
+--DROP DATABASE pac2
+--CREATE DATABASE pac2
+
+CREATE SCHEMA olimpic;
+
+SET search_path TO olimpic, "$user", olimpic;
+
+BEGIN WORK;
+CREATE DOMAIN dom_type AS VARCHAR(100)
+	CONSTRAINT valid_types
+	CHECK (VALUE IN ('RUN','JUMP','THROW'));
+	
+CREATE TABLE tb_discipline(
+	discipline_id INTEGER, --No cal posar NOT NULL per ser primary key.
+	 name VARCHAR(50) NOT NULL,
+	 inventor VARCHAR(50) NOT NULL,
+	 type dom_type NOT NULL,
+	 object_type CHAR(20),
+	 PRIMARY KEY (discipline_id));
+
+CREATE TABLE tb_athlete
+	(athlete_id CHAR(7),
+	 name VARCHAR(50) NOT NULL,
+	 country CHAR(3) NOT NULL,
+	 substitute_id CHAR(7),
+	 PRIMARY KEY (athlete_id),
+	 FOREIGN KEY (substitute_id) REFERENCES tb_athlete(athlete_id));
+
+CREATE TABLE tb_play
+	(athlete_id CHAR(7),
+	 discipline_id INTEGER,
+	 PRIMARY KEY (athlete_id, discipline_id),
+	 FOREIGN KEY (athlete_id) REFERENCES tb_athlete(athlete_id),
+	 FOREIGN KEY (discipline_id) REFERENCES tb_discipline(discipline_id));
+
+CREATE TABLE tb_round
+	(round_number INTEGER,
+	 discipline_id INTEGER,
+	 PRIMARY KEY (round_number, discipline_id),
+	 FOREIGN KEY (discipline_id) REFERENCES tb_discipline(discipline_id));
+
+CREATE TABLE tb_register
+	(athlete_id CHAR(7), --No hauria de ser 7?
+	 round_number INTEGER,
+	 discipline_id INTEGER,
+	 register_date DATE DEFAULT CURRENT_DATE NOT NULL,
+	 register_position INTEGER,
+	 register_time TIME,
+	 register_measure REAL,
+	 PRIMARY KEY(athlete_id, round_number, discipline_id),
+	 FOREIGN KEY (athlete_id) REFERENCES tb_athlete(athlete_id),
+	 FOREIGN KEY (round_number,discipline_id) REFERENCES tb_round(round_number,discipline_id));
+--	 FOREIGN KEY (discipline_id) REFERENCES tb_round(discipline_id));
+COMMIT WORK;

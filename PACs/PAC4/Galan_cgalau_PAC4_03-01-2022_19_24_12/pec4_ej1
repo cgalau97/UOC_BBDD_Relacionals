@@ -1,0 +1,71 @@
+--1A
+--DROP SEQUENCE olympic.seq_athlete_id CASCADE
+CREATE SEQUENCE olympic.seq_athlete_id 
+	INCREMENT BY 1
+	START WITH 1001
+	CYCLE;
+	
+ALTER TABLE olympic.tb_athlete
+	--DROP COLUMN id;
+	ADD COLUMN id INTEGER DEFAULT nextval('olympic.seq_athlete_id');
+
+UPDATE olympic.tb_athlete a
+SET id = sub.RN+1000
+FROM (
+	SELECT id, ROW_NUMBER() OVER (ORDER BY athlete_id DESC) AS RN
+	FROM olympic.tb_athlete
+) sub
+WHERE a.id = sub.id;
+
+SELECT ROW_NUMBER() OVER (ORDER BY athlete_id DESC) AS row_number,* FROM olympic.tb_athlete
+
+--1B
+
+WITH RECURSIVE posicions AS (
+	SELECT
+		d.name,
+		r.round_number,
+		r.register_position,
+		CAST (r.register_position || ':' || a.name AS TEXT) AS a_position
+	FROM 
+		(olympic.tb_register r NATURAL JOIN olympic.tb_discipline d) JOIN olympic.tb_athlete a ON r.athlete_id = a.athlete_id 
+	WHERE 
+		d.name = 'Triathlon' AND r.round_number = 3 AND r.register_position = 0
+UNION ALL
+SELECT
+		d.name,
+		r.round_number,
+		r.register_position,
+		CAST (p.a_position || ' -> ' || r.register_position || ':' || a.name AS TEXT) AS a_position
+	FROM
+		((olympic.tb_register r NATURAL JOIN olympic.tb_discipline d) JOIN olympic.tb_athlete a ON r.athlete_id = a.athlete_id) INNER JOIN posicions p
+		ON r.register_position = p.register_position+1 
+		WHERE d.name = 'Triathlon' AND r.round_number = 3 --AND r.register_position = 0		
+)
+
+SELECT
+	name,
+	round_number,
+	register_position,
+	a_position
+FROM
+	posicions	
+	
+	
+--1C
+SELECT 
+	DISTINCT a.name AS atleta,
+	d.name AS disciplina,
+	a.country AS pais,
+	MIN(r.register_time) OVER (PARTITION BY d.name ORDER BY r.register_time) AS millor_temps,
+	COUNT(a.name) OVER (PARTITION BY d.name, a.country, a.name 
+						ORDER BY r.register_time 
+						RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS num_participacions,
+	AVG(r.register_time) OVER (PARTITION BY a.country,d.name) AS temps_mig_pais_disciplina,
+	COUNT(d.name) OVER (PARTITION BY a.country,d.name) AS total_participants_per_disciplina_pais	
+	FROM 
+		(olympic.tb_register r NATURAL JOIN olympic.tb_discipline d) JOIN olympic.tb_athlete a ON r.athlete_id = a.athlete_id
+	ORDER BY d.name, a.country, a.name--,p.round_number
+
+
+	

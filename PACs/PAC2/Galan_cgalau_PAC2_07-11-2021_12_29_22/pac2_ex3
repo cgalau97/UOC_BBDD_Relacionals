@@ -1,0 +1,53 @@
+--A
+SET search_path TO olimpic;
+INSERT INTO olimpic.tb_athlete(athlete_id, name, country, substitute_id) 
+VALUES('0000001','REMBRAND Luc','FRA',NULL);
+
+INSERT INTO olimpic.tb_athlete(athlete_id, name, country, substitute_id) 
+VALUES('0000002','SMITH Mike','ENG',NULL);
+
+INSERT INTO olimpic.tb_athlete(athlete_id, name, country, substitute_id) 
+VALUES('0000003','LEWIS Carl','USA',NULL);
+
+--SELECT * FROM tb_athlete
+--WHERE athlete_id LIKE ('000000%')
+
+
+--B
+SET search_path TO olimpic;
+ALTER TABLE tb_athlete
+ADD CONSTRAINT spanish_substitute CHECK(NOT (country = 'ESP' AND substitute_id IS NULL));
+
+SET search_path TO olimpic;
+
+INSERT INTO olimpic.tb_athlete(athlete_id, name, country, substitute_id) 
+VALUES('0000004','RAJOY Mariano','ESP',NULL);
+
+--INSERT INTO olimpic.tb_athlete(athlete_id, name, country, substitute_id) 
+--VALUES('0000004','RAJOY Mariano','CAT',NULL);
+
+--DELETE FROM tb_athlete
+--WHERE athlete_id LIKE ('0000004')
+	
+-- C
+CREATE VIEW olimpic.exercise33 AS (
+	SELECT * FROM tb_athlete WHERE country IN ('ESP') AND name LIKE ('PE%') ORDER BY athlete_id DESC); 
+SELECT * FROM olimpic.exercise33;
+
+-- D
+SET search_path TO olimpic;
+ALTER TABLE tb_athlete
+ADD COLUMN date_add DATE NOT NULL DEFAULT CURRENT_DATE
+
+SELECT * FROM tb_athlete WHERE 
+athlete_id = '0000004'
+LIMIT 5
+
+--E
+
+CREATE ROLE regist;
+GRANT USAGE ON SCHEMA olimpic TO regist;
+GRANT SELECT, INSERT, UPDATE, DELETE ON tb_register TO regist;
+GRANT SELECT ON tb_athlete TO regist;
+CREATE USER registerer WITH PASSWORD '1234';
+GRANT regist TO registerer;
